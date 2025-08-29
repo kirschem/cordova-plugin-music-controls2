@@ -155,121 +155,142 @@ public class MusicControlsNotification {
 		}
 	}
 
-	private void createBuilder(){
-		Context context = cordovaActivity;
-		Notification.Builder builder = new Notification.Builder(context);
+    private void createBuilder() {
+        Context context = cordovaActivity;
+        Notification.Builder builder = new Notification.Builder(context);
 
-		// use channelID for Oreo and higher
-		if (Build.VERSION.SDK_INT >= 26) {
-			builder.setChannelId(this.CHANNEL_ID);
-		}
+        if (Build.VERSION.SDK_INT >= 26) {
+            builder.setChannelId(this.CHANNEL_ID);
+        }
 
-		//Configure builder
-		builder.setContentTitle(infos.track);
-		if (!infos.artist.isEmpty()){
-			builder.setContentText(infos.artist);
-		}
-		builder.setWhen(0);
+        builder.setContentTitle(infos.track);
+        if (!infos.artist.isEmpty()) builder.setContentText(infos.artist);
+        builder.setWhen(0);
 
-		// set if the notification can be destroyed by swiping
-		if (infos.dismissable){
-			builder.setOngoing(false);
-			Intent dismissIntent = new Intent("music-controls-destroy");
-			PendingIntent dismissPendingIntent = PendingIntent.getBroadcast(context, 1, dismissIntent, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0);
-			builder.setDeleteIntent(dismissPendingIntent);
-		} else {
-			builder.setOngoing(true);
-		}
-		if (!infos.ticker.isEmpty()){
-			builder.setTicker(infos.ticker);
-		}
-		
-		builder.setPriority(Notification.PRIORITY_MAX);
+        // Dismiss by swipe (deleteIntent)
+        if (infos.dismissable){
+            builder.setOngoing(false);
+            Intent dismissIntent = new Intent("music-controls-destroy")
+                    .setPackage(context.getPackageName());
+            PendingIntent dismissPendingIntent = PendingIntent.getBroadcast(
+                    context, 101, dismissIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT |
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+            );
+            builder.setDeleteIntent(dismissPendingIntent);
+        } else {
+            builder.setOngoing(true);
+        }
 
-		//If 5.0 >= set the controls to be visible on lockscreen
-		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP){
-			builder.setVisibility(Notification.VISIBILITY_PUBLIC);
-		}
+        if (!infos.ticker.isEmpty()) builder.setTicker(infos.ticker);
+        builder.setPriority(Notification.PRIORITY_MAX);
 
-		//Set SmallIcon
-		boolean usePlayingIcon = infos.notificationIcon.isEmpty();
-		if(!usePlayingIcon){
-			int resId = this.getResourceId(infos.notificationIcon, 0);
-			usePlayingIcon = resId == 0;
-			if(!usePlayingIcon) {
-				builder.setSmallIcon(resId);
-			}
-		}
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            builder.setVisibility(Notification.VISIBILITY_PUBLIC);
+        }
 
-		if(usePlayingIcon){
-			if (infos.isPlaying){
-				builder.setSmallIcon(this.getResourceId(infos.playIcon, android.R.drawable.ic_media_play));
-			} else {
-				builder.setSmallIcon(this.getResourceId(infos.pauseIcon, android.R.drawable.ic_media_pause));
-			}
-		}
+        // Small icon
+        boolean usePlayingIcon = infos.notificationIcon.isEmpty();
+        if (!usePlayingIcon) {
+            int resId = this.getResourceId(infos.notificationIcon, 0);
+            usePlayingIcon = resId == 0;
+            if (!usePlayingIcon) builder.setSmallIcon(resId);
+        }
+        if (usePlayingIcon){
+            if (infos.isPlaying){
+                builder.setSmallIcon(this.getResourceId(infos.playIcon, android.R.drawable.ic_media_play));
+            } else {
+                builder.setSmallIcon(this.getResourceId(infos.pauseIcon, android.R.drawable.ic_media_pause));
+            }
+        }
 
-		//Set LargeIcon
-		if (!infos.cover.isEmpty() && this.bitmapCover != null){
-			builder.setLargeIcon(this.bitmapCover);
-		}
+        // Large icon
+        if (!infos.cover.isEmpty() && this.bitmapCover != null){
+            builder.setLargeIcon(this.bitmapCover);
+        }
 
-		//Open app if tapped
-		Intent resultIntent = new Intent(context, cordovaActivity.getClass());
-		resultIntent.setAction(Intent.ACTION_MAIN);
-		resultIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-		PendingIntent resultPendingIntent = PendingIntent.getActivity(context, 0, resultIntent, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0);
-		builder.setContentIntent(resultPendingIntent);
+        // Open app when tapped
+        Intent resultIntent = new Intent(context, cordovaActivity.getClass())
+                .setAction(Intent.ACTION_MAIN)
+                .addCategory(Intent.CATEGORY_LAUNCHER);
+        PendingIntent resultPendingIntent = PendingIntent.getActivity(
+                context, 100, resultIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT |
+                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+        );
+        builder.setContentIntent(resultPendingIntent);
 
-		//Controls
-		int nbControls=0;
+        // Controls
+        int nbControls = 0;
 
-		if (infos.hasPrev){
-			/* Previous  */
-			nbControls++;
-			Intent previousIntent = new Intent("music-controls-previous");
-			PendingIntent previousPendingIntent = PendingIntent.getBroadcast(context, 1, previousIntent, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0);
-			builder.addAction(this.getResourceId(infos.prevIcon, android.R.drawable.ic_media_previous), "", previousPendingIntent);
-		}
-		if (infos.isPlaying){
-			/* Pause  */
-			nbControls++;
-			Intent pauseIntent = new Intent("music-controls-pause");
-			PendingIntent pausePendingIntent = PendingIntent.getBroadcast(context, 1, pauseIntent, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0);
-			builder.addAction(this.getResourceId(infos.pauseIcon, android.R.drawable.ic_media_pause), "", pausePendingIntent);
-		} else {
-			/* Play  */
-			nbControls++;
-			Intent playIntent = new Intent("music-controls-play");
-			PendingIntent playPendingIntent = PendingIntent.getBroadcast(context, 1, playIntent, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0);
-			builder.addAction(this.getResourceId(infos.playIcon, android.R.drawable.ic_media_play), "", playPendingIntent);
-		}
+        if (infos.hasPrev){
+            nbControls++;
+            Intent previousIntent = new Intent("music-controls-previous")
+                    .setPackage(context.getPackageName());
+            PendingIntent previousPendingIntent = PendingIntent.getBroadcast(
+                    context, 102, previousIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT |
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+            );
+            builder.addAction(this.getResourceId(infos.prevIcon, android.R.drawable.ic_media_previous), "", previousPendingIntent);
+        }
 
-		if (infos.hasNext){
-			/* Next */
-			nbControls++;
-			Intent nextIntent = new Intent("music-controls-next");
-			PendingIntent nextPendingIntent = PendingIntent.getBroadcast(context, 1, nextIntent, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0);
-			builder.addAction(this.getResourceId(infos.nextIcon, android.R.drawable.ic_media_next), "", nextPendingIntent);
-		}
-		if (infos.hasClose){
-			/* Close */
-			nbControls++;
-			Intent destroyIntent = new Intent("music-controls-destroy");
-			PendingIntent destroyPendingIntent = PendingIntent.getBroadcast(context, 1, destroyIntent, Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0);
-			builder.addAction(this.getResourceId(infos.closeIcon, android.R.drawable.ic_menu_close_clear_cancel), "", destroyPendingIntent);
-		}
+        if (infos.isPlaying){
+            nbControls++;
+            Intent pauseIntent = new Intent("music-controls-pause")
+                    .setPackage(context.getPackageName());
+            PendingIntent pausePendingIntent = PendingIntent.getBroadcast(
+                    context, 103, pauseIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT |
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+            );
+            builder.addAction(this.getResourceId(infos.pauseIcon, android.R.drawable.ic_media_pause), "", pausePendingIntent);
+        } else {
+            nbControls++;
+            Intent playIntent = new Intent("music-controls-play")
+                    .setPackage(context.getPackageName());
+            PendingIntent playPendingIntent = PendingIntent.getBroadcast(
+                    context, 104, playIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT |
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+            );
+            builder.addAction(this.getResourceId(infos.playIcon, android.R.drawable.ic_media_play), "", playPendingIntent);
+        }
 
-		//If 5.0 >= use MediaStyle
-		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP){
-			int[] args = new int[nbControls];
-			for (int i = 0; i < nbControls; ++i) {
-				args[i] = i;
-			}
-			builder.setStyle(new Notification.MediaStyle().setShowActionsInCompactView(args).setMediaSession(this.token));
-		}
-		this.notificationBuilder = builder;
-	}
+        if (infos.hasNext){
+            nbControls++;
+            Intent nextIntent = new Intent("music-controls-next")
+                    .setPackage(context.getPackageName());
+            PendingIntent nextPendingIntent = PendingIntent.getBroadcast(
+                    context, 105, nextIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT |
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+            );
+            builder.addAction(this.getResourceId(infos.nextIcon, android.R.drawable.ic_media_next), "", nextPendingIntent);
+        }
+
+        if (infos.hasClose){
+            nbControls++;
+            Intent destroyIntent = new Intent("music-controls-destroy")
+                    .setPackage(context.getPackageName());
+            PendingIntent destroyPendingIntent = PendingIntent.getBroadcast(
+                    context, 106, destroyIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT |
+                    (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0)
+            );
+            builder.addAction(this.getResourceId(infos.closeIcon, android.R.drawable.ic_menu_close_clear_cancel), "", destroyPendingIntent);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP){
+            int[] args = new int[nbControls];
+            for (int i = 0; i < nbControls; ++i) args[i] = i;
+            builder.setStyle(new Notification.MediaStyle()
+                    .setShowActionsInCompactView(args)
+                    .setMediaSession(this.token));
+        }
+
+        this.notificationBuilder = builder;
+    }
 
 	private int getResourceId(String name, int fallback){
 		try{
